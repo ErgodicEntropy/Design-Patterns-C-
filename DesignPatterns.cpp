@@ -699,34 +699,143 @@ int main(){
     cl.makeRequest("I want to deliver something"); 
     return 0;
 }
-//Proxy
 
-
-//Flyweight (Cache)
+//Flyweight (Cache): caching common parts (immutable intrinsic states) of a massive number of similar objects in memory that heavily consume RAM for computational efficiency.
 ///my analogy: prepared statements (compile template once, change/bind param values for each run)
-///my intuition: store or cache memory-heavy common parts (runtime-invariant members: attributes/states or methods/actions, not to say static attributes/methods) in a template object, and only change what needs to be changed (mutatis mutandis)
+///my intuition: store or cache memory-heavy common parts (runtime-invariant members: attributes/states or methods/actions, not to say static attributes/methods) in a template object (flyweight), and only change what needs to be changed (mutatis mutandis)
 
-class Particle{
+//another implmentation of the flyweight in this example: extract extrinsic states (or intrinsic states) into a separate class -> apply Singleton pattern to the intrinsic states class (one instance) -> Link the extrinsic classes (Contexts) and intrinsic class (Flyweight: which contains extrinsic states as parametters to its methods) by association or use Flyweight as a data object in one or more Contexts for full original object completion
+class Particle{ //the Flyweight class is the class that stores immutable intrinsic states
     // let's assume that size, speed and color are common parts between objects/instances (runtime-invariant: immutable and intrinsic state as opposed to mutable and extrinsic states)
     inline const static int size = 20;
     inline const static int speed = 10;
     string color; 
     string type;
+    string shape;
     public:
-        Particle(string t, string c): type(t), color(c){} //extrinsic mutable states
+        Particle(string t, string c, string sh): type(t), color(c), shape(sh){} //extrinsic mutable states
+
+        string getShape(){
+            return this->shape;
+        }
     
 };
 
-int main(){
-    Particle redBullet("red", "bullet");
-    Particle blueBullet("blue", "bullet");
+// the RAM cost problem comes from aggregation/composition of the Particle class in a Game class
 
-    Particle blueMissile("blue", "missile"); 
+class Game{ //Flyweight factory
+    string name;
+    vector<Particle> particles;
+    public:
+        Game(string n, vector<Particle> pas): name(n), particles(pas){}
+
+        void addParticle(Particle p){
+            particles.push_back(p);
+        }
+        void drawParticle(Particle p){
+            cout << p.getShape() << "drawn"; 
+        }
+};
+
+int main(){
+    Particle redBullet("red", "bullet", "bulletShape");
+    Particle blueBullet("blue", "bullet", "bulletShape");
+
+    Particle blueMissile("blue", "missile", "missileShape"); 
     return 0;
 }
 
 
+//Proxy: it lets you substitute or placehold an original object that consumes system resources but it's not always needed by controlling access to it (protection proxy) as it performs actions before or after the request is made to the original object -> create the heavyweight object only when needed (virtual proxy: lazy initialization)
+///Proxy also does caching of results to client/user requests so that in case of multiple similar requests, the proxy merely returns the cached result without delegation to the original service
+///Proxy implements the Open-Closed principle: you can extend the service beahvior just by adding more proxies
+///Proxy knows about the User and Service but they aren't aware of it
+class User{
+    string name;
+    string credentials; 
+    ServiceInterface* SI;
+    public:
+        User(string n, string cred){
+            this->name = n;
+            this->credentials = cred;
+        }
 
+        void chooseService(string name){
+            SI = new Proxy(name, 20);
+        }
+        void makeRequest(string request){
+            SI->processRequest(request, *this); 
+        }
+
+        string getName() const {
+            return name;
+        }
+
+        string getCredentials() const {
+            return credentials; 
+        }
+}; 
+
+class ServiceInterface{
+    public:
+        virtual void processRequest(string request, const User& user) = 0;
+        virtual ~ServiceInterface() = default;
+};
+class Proxy: public ServiceInterface{ //only create a service object when needed -> it needs to implement the Service Interface to be able to disguise as a service to the User
+    string name;
+    int size;
+    vector<string> cachedResults; //caching proxy
+    vector<string> requestHistory; //logging proxy (logging requests: keeping a track of history of requests to the service object before processing)
+    public:
+        Proxy(string n, int s): name(n), size(s){}
+        bool verifyAccess(Service* s, string userCredentials){ //protection proxy (user credentials verification)
+            if (userCredentials == s->serviceCredentials) return true;
+            else return false;
+        }
+
+        void processRequest(string request, const User& user) override{
+           Service* ser = new Service(name, size);// virtual proxy (lazy initialization and lifecycle control: only create the service object when needed for task delegation: make-to-order on the fly) -> virtual proxy introduces concurrency (non-blocking I/O asynchronous execution: we don't wait for the service object to be available or ready for cached results)
+           requestHistory.push_back(request);//logging proxy (logging requests: keeping a track of history of requests to the service object before processing)
+           vector<string>::iterator it = find(cachedResults.begin(), cachedResults.end(), ser->outputResult(request)); //iterator type
+            if ( it != cachedResults.end()){ //cached results
+                int index = it - cachedResults.begin(); 
+                cout << cachedResults[index];
+            } else if (verifyAccess(ser,user.getCredentials())){
+                ser->processRequest(request, user); //remote proxy (service object located in a remote server -> local execution of remote service because the remote proxy handles all nasty details of working with an network)
+                string result = ser->outputResult(request);
+                cachedResults.push_back(result); //caching proxy (caching resource-consuming request results)
+            } else{
+                cout << "Service access invalid";
+            }
+        }
+}; 
+
+
+class Service: public ServiceInterface{
+    string name; 
+    string serviceCredentials;
+    int size;
+    public:
+        Service(string n, int s): name(n), size(s){}
+
+        void processRequest(string request, const User& user) override{
+            cout << user.getName() << "Request processed!";
+        }
+
+        string outputResult(string request){
+            return request + "processed!"; 
+        }
+
+        friend class Proxy; 
+};
+
+
+int main(){
+    User us("Ayoub", "abc");
+    us.chooseService("Delivery"); 
+    us.makeRequest("I want to deliver my product!"); 
+    return 0; 
+}
 
 
 //Behavioral Design Patterns: how objects communicate (information exchange mechanisms) and assign responsbilities to each others (delegation mechanisms)
