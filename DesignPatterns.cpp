@@ -704,15 +704,28 @@ int main(){
 
 //Flyweight (Cache)
 ///my analogy: prepared statements (compile template once, change/bind param values for each run)
-///my intuition: store or cache the common parts (runtime-invariant members: attributes/states or methods/actions, not to say static attributes/methods) in a template object, and only change what needs to be changed (mutatis mutandis)
+///my intuition: store or cache memory-heavy common parts (runtime-invariant members: attributes/states or methods/actions, not to say static attributes/methods) in a template object, and only change what needs to be changed (mutatis mutandis)
 
 class Particle{
-    int size;
+    // let's assume that size, speed and color are common parts between objects/instances (runtime-invariant: immutable and intrinsic state as opposed to mutable and extrinsic states)
+    inline const static int size = 20;
+    inline const static int speed = 10;
+    string color; 
     string type;
-    string color;
-    int speed; 
+    public:
+        Particle(string t, string c): type(t), color(c){} //extrinsic mutable states
     
 };
+
+int main(){
+    Particle redBullet("red", "bullet");
+    Particle blueBullet("blue", "bullet");
+
+    Particle blueMissile("blue", "missile"); 
+    return 0;
+}
+
+
 
 
 
