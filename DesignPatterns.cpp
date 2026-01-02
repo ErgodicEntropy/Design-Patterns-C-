@@ -9,7 +9,7 @@ using namespace std;
 //Design Patterns are reusable, general and typical solutions to recurring problems in object-oriented system design (design problems)
 
 //More specifically, design patterns are pre-made abstract blueprints of general solution to a particular design problem (no implementation details, just conceptual description for how to solve a design problem)
-//We present deisgn patterns in terms of their intent (describes the design problem and solution briefly), motivation, class structure (class diagram: parts of the pattern and how they relate), code example
+//We present deisgn patterns in terms of their intent (describes the design problem and solution briefly), motivation, class structure (class diagram: parts of the pattern and how they relate), code example, applicability (where it is best used and what you can do with it), and relation to other design patterns
 
 ///Creational Design Patterns: how objects are created (object creation mechanisms) to ensure flexibility and reusability of existing code
 
@@ -629,26 +629,46 @@ int main(){
     return 0; 
 }
 
-//Facade: the use of a simplified interface to a 3rd-party or secondary library, framework or set of classes without having to worry about their objects, execution order, dependency, etc => facade is a class-level encapsulation (similar to an API endpoint)
+//Facade: the use of a simplified, limited but straightforward interface to a 3rd-party or secondary complex subsystem (library, framework or set of classes) without having to worry about their objects, execution order, dependency, etc => facade is a class-level encapsulation and abstraction (similar to an API endpoint)
 
 class Client{
     string name;
     Facade* f;
     public:
         Client(string n): name(n){}
-
         void makeRequest(string request){
-            cout << "Client demands " << request; 
-            f->handleRequest(request);
+            cout << "Client made a request " << request; 
+            string type = f->interpretRequest(request);
+            if (type == "Warehouse"){
+                f = new Warehouse(11,"Warehouse1", 20); 
+                f->handleRequest(request);
+            } else if (type == "Delivery"){
+                f = new Delivery(11,"Delivery1", 20); 
+                f->handleRequest(request);
+            } else {
+                cout << "invalid request"; //this part can be handled by an additional facade that handles unrelated requests, functionalities or features
+            }
         }
 }; 
-
 class Facade{
     public:
+        //interpretation of request
+        string interpretRequest(string request){
+            if (request == "I want to deliver something"){
+                return "Delivery";
+            } else if (request == "I want to store something"){
+                return "Warehouse"; 
+            } else{
+                return ""; 
+            }
+        }
+        //delegation of request
         virtual void handleRequest(string request) = 0;
         virtual ~Facade() = default;
+
 }; 
 
+//you can create a subsystem layer facade that serves as a communication interface between the subsystems themselves
 class Warehouse: public Facade{
     int code;
     string name;
@@ -657,7 +677,7 @@ class Warehouse: public Facade{
         Warehouse(int c, string n, int cap): code(c), name(n), capacity(cap){}
 
         void handleRequest(string request) override{
-
+            cout << "Warehouse request handled!";
         }
 }; 
 
@@ -669,16 +689,30 @@ class Delivery: public Facade{
         Delivery(int c, string n, int s): code(c), name(n), speed(s){}
 
         void handleRequest(string request) override{
-            
+            cout << "Delivery request handled!";            
         }
     
 };
 
-
+int main(){
+    Client cl("Ayoub");
+    cl.makeRequest("I want to deliver something"); 
+    return 0;
+}
 //Proxy
 
 
-//Fly-Weight
+//Flyweight (Cache)
+///my analogy: prepared statements (compile template once, change/bind param values for each run)
+///my intuition: store or cache the common parts (runtime-invariant members: attributes/states or methods/actions, not to say static attributes/methods) in a template object, and only change what needs to be changed (mutatis mutandis)
+
+class Particle{
+    int size;
+    string type;
+    string color;
+    int speed; 
+    
+};
 
 
 
