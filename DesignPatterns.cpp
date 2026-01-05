@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <exception>
 using namespace std;
 
 
@@ -794,7 +795,7 @@ class Proxy: public ServiceInterface{ //only create a service object when needed
         }
 
         void processRequest(string request, const User& user) override{
-           Service* ser = new Service(name, size);// virtual proxy (lazy initialization and lifecycle control: only create the service object when needed for task delegation: make-to-order on the fly) -> virtual proxy introduces concurrency (non-blocking I/O asynchronous execution: we don't wait for the service object to be available or ready for cached results)
+           Service* ser = new Service(name, size);// virtual proxy (lazy initialization and lifecycle control: only create the service object when needed for task delegation: make-to-order on the fly) -> virtual proxy introduces concurrency (non-blocking I/O asynchronous execution: we don't wait for the service object to be available or ready e.g., cached results)
            requestHistory.push_back(request);//logging proxy (logging requests: keeping a track of history of requests to the service object before processing)
            vector<string>::iterator it = find(cachedResults.begin(), cachedResults.end(), ser->outputResult(request)); //iterator type
             if ( it != cachedResults.end()){ //cached results
@@ -841,8 +842,177 @@ int main(){
 //Behavioral Design Patterns: how objects communicate (information exchange mechanisms) and assign responsbilities to each others (delegation mechanisms)
 
 
+//Chain of Responsibility (Chain of Command): a sequence of handlers 
 
 
+
+class Handler{
+    public:
+        virtual void processRequest(string request) = 0;
+        virtual Handler* setNext(Handler* h) = 0;
+        virtual ~Handler() = default; 
+
+}; 
+
+//you can have a BaseHandler class that contains all the boilerplate code of all concrete handlers, their attriutes and order of execution
+class AuthenticateException: public exception{
+    public:
+        AuthenticateException(const char* msg): exception(msg){}
+
+        const char* what() const noexcept override{
+            return exception::what();
+        }
+};
+class AuthorizeException: public exception{
+    public:
+        AuthorizeException(const char* msg): exception(msg){}
+
+        const char* what() const noexcept override{
+            return exception::what();
+        }
+};
+class ValidateException: public exception{
+    public:
+        ValidateException(const char* msg): exception(msg){}
+
+        const char* what() const noexcept override{
+            return exception::what();
+        }
+};
+
+class Authenticate: public Handler{
+    int capacity;
+    public:
+        inline static int usedAuthObjects = 0;
+        Authenticate(int c): capacity(c){
+            Authenticate::usedAuthObjects++;
+        }
+        void processRequest(string request) override{
+            if (capacity >= 20){ // in case of sufficient capacity: we can either automatically setNext or make it optional
+                cout << request << ": authenticated!"; 
+                return;
+            } else { //in case of insufficient capacity, we can't: 1- reproces the request with the same object 2- do nothing (and manually/optionally setNext) 3- automatically setNext and pass request to next handler anyway (unless we have no sequential dependence or order of execution or that the request is universal and can be validly processed by any type of handler or that if all handlers are same type)
+                //before throwing error, you can give it another chance by passing the request to another object of the same class type until the request is processed or a maximum iteration is exceeded (static attribute) -> throw error)
+                while (usedAuthObjects < 10){
+                    Authenticate* auth = new Authenticate(2*capacity); //aggregation: double the capacity
+                    auth->processRequest(request);
+                }
+                throw AuthenticateException("Insufficient Authentication Capacity"); //throw error to indicate sequential dependence (no need for error throwing in case of no sequential order)
+            }
+        }
+
+        Handler* setNext(Handler* h) override{
+            return h;
+        }
+}; 
+class Authorize: public Handler{
+    int capacity;
+    public:
+        inline static int usedAuthoObjects = 0;
+        Authorize(int c): capacity(c){
+            Authorize::usedAuthoObjects++; 
+        }
+
+        void processRequest(string request) override{
+            if (capacity >= 20){
+                cout << request << ": auhtorized!"; 
+            } else {
+                while (usedAuthoObjects < 10){
+                    Authorize* autho = new Authorize(2*capacity);
+                    autho->processRequest(request);
+                    if (2*capacity >= 20){
+                        break;
+                    }
+                }
+                throw AuthorizeException("Insufficient Authorization capacity"); 
+            }
+        }
+        Handler* setNext(Handler* h) override{ //without a BaseHandler class, we need to either call this method automatically with some validate object in case of sufficient capacity
+            return h;
+        }
+
+}; 
+
+class Validate: public Handler{
+    int capacity;
+    public:
+        inline static int usedValObjects = 0;
+        Validate(int c): capacity(c){
+            Validate::usedValObjects++;
+        }
+
+        void processRequest(string request) override{
+            if (capacity >= 20){
+                cout << request << ": validated!"; 
+                return;
+            } else {
+                while (usedValObjects < 10){
+                    Validate* val = new Validate(2*capacity);
+                    val->processRequest(request);
+                }
+                throw ValidateException("Insufficient Validation capacity");
+            }
+        }
+
+        Handler* setNext(Handler* h) override{ //without a BaseHandler class, we need to either call this method automatically with some next handler object in case of sufficient capacity
+            return nullptr;
+        }
+}; 
+
+///BaseHandler class implementation to solve the problem of having to call the setNext automatically in case of sufficient capacity
+
+class BaseHandler:public Handler{ //abstract class
+    Authenticate* authen;
+    Authorize* autho;
+    Validate* val;
+    Handler* currentHandler; //this attribute will solve the decoupling problem that forces setNext automatic call by bridging the handling logic chronologically through memorizing the current handler
+    int authenCapacity;
+    int authoCapacity; 
+    int valCapacity;
+    public:
+        BaseHandler(int athc, int atoc, int vc): authenCapacity(athc),authoCapacity(atoc),valCapacity(vc){
+            //initial concrete handlers of the base handler
+            authen = new Authenticate(authenCapacity);            
+            autho = new Authorize(authoCapacity);
+            val = new Validate(valCapacity); 
+        }
+        void processRequest(string request) override{
+            currentHandler = authen;
+            currentHandler->processRequest(request);
+            currentHandler = currentHandler->setNext(autho);
+            currentHandler->processRequest("Authorize this please!");
+            currentHandler = currentHandler->setNext(val);
+            currentHandler->processRequest("Validate this please!");
+        }  
+
+        virtual Handler* setNext(Handler* h) = 0;
+};
+
+int main(){
+    try {
+        // Authenticate authenticate(3);
+        // authenticate.processRequest("authenticate this please"); 
+        // authenticate.setNext(new Authorize(20));
+
+    } catch (const AuthenticateException& authen){
+        cerr << "Authentication Exception caught" << authen.what(); 
+    } catch (const AuthorizeException& autho){
+        cerr << "Authorize Exception caught" << autho.what(); 
+    } catch(const ValidateException& valerr){
+        cerr << "Authentication Exception caught" << valerr.what(); 
+    } catch (const exception& e){
+        cerr << "Standard Exception caught" << e.what(); 
+    } catch(...){
+        cerr << "Generic Exception caught"; 
+    }
+
+
+    return 0;
+}
+
+
+
+//Observer
 class Observer {
 public:
     virtual ~Observer() = default;
