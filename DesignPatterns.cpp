@@ -900,6 +900,10 @@ class Authenticate: public BaseHandler{
                 throw AuthenticateException("Insufficient Authentication Capacity"); //throw error to indicate sequential dependence (no need for error throwing in case of no sequential order)
             }
         }
+ 
+        ~Authenticate() noexcept {
+            cout << "Authentication destroyed";
+        }
 
 }; 
 class Authorize: public BaseHandler{
@@ -925,6 +929,10 @@ class Authorize: public BaseHandler{
             }
         }
 
+        ~Authorize() noexcept {
+            cout << "Authorization destroyed";
+        }
+
 }; 
 
 class Validate:public BaseHandler{
@@ -946,6 +954,10 @@ class Validate:public BaseHandler{
                 }
                 throw ValidateException("Insufficient Validation capacity");
             }
+        }
+
+        ~Validate() noexcept {
+            cout << "Validation destroyed";
         }
 }; 
 
@@ -979,6 +991,11 @@ int main(){
 
         bh.setNext(val);
         bh.processRequest("Validate this please");
+
+        //hint queston: do we always guarantee memory release of these dynamically allocated objects? -> allocate using smart/unique ptrs instead!
+        delete authen;
+        delete autho; 
+        delete val;
 
     } catch (const AuthenticateException& authen){
         cerr << "Authentication Exception caught" << authen.what(); 
