@@ -982,6 +982,10 @@ int main(){
         Authorize* autho = new Authorize(4);
         Validate* val = new Validate(11);
 
+        // unique_ptr<Authenticate> authenp = make_unique<Authenticate>(Authenticate(10));
+        // unique_ptr<Authorize> authop = make_unique<Authorize>(Authorize(4));
+        // unique_ptr<Validate> valp = make_unique<Validate>(Validate(11));
+
         BaseHandler bh;
         bh.setNext(authen);
         bh.processRequest("Authenticate this please");
