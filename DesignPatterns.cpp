@@ -880,14 +880,14 @@ class ValidateException: public exception{
         }
 };
 
-class Authenticate: public Handler{
+class Authenticate: public BaseHandler{
     int capacity;
     public:
         inline static int usedAuthObjects = 0;
         Authenticate(int c): capacity(c){
             Authenticate::usedAuthObjects++;
         }
-        void processRequest(string request) override{
+        void processRequest(string request){
             if (capacity >= 20){ // in case of sufficient capacity: we can either automatically setNext or make it optional
                 cout << request << ": authenticated!"; 
                 return;
@@ -901,11 +901,8 @@ class Authenticate: public Handler{
             }
         }
 
-        Handler* setNext(Handler* h) override{
-            return h;
-        }
 }; 
-class Authorize: public Handler{
+class Authorize: public BaseHandler{
     int capacity;
     public:
         inline static int usedAuthoObjects = 0;
@@ -913,7 +910,7 @@ class Authorize: public Handler{
             Authorize::usedAuthoObjects++; 
         }
 
-        void processRequest(string request) override{
+        void processRequest(string request){
             if (capacity >= 20){
                 cout << request << ": auhtorized!"; 
             } else {
@@ -927,13 +924,10 @@ class Authorize: public Handler{
                 throw AuthorizeException("Insufficient Authorization capacity"); 
             }
         }
-        Handler* setNext(Handler* h) override{ //without a BaseHandler class, we need to either call this method automatically with some validate object in case of sufficient capacity
-            return h;
-        }
 
 }; 
 
-class Validate: public Handler{
+class Validate:public BaseHandler{
     int capacity;
     public:
         inline static int usedValObjects = 0;
@@ -941,7 +935,7 @@ class Validate: public Handler{
             Validate::usedValObjects++;
         }
 
-        void processRequest(string request) override{
+        void processRequest(string request){
             if (capacity >= 20){
                 cout << request << ": validated!"; 
                 return;
@@ -953,46 +947,38 @@ class Validate: public Handler{
                 throw ValidateException("Insufficient Validation capacity");
             }
         }
-
-        Handler* setNext(Handler* h) override{ //without a BaseHandler class, we need to either call this method automatically with some next handler object in case of sufficient capacity
-            return nullptr;
-        }
 }; 
 
-///BaseHandler class implementation to solve the problem of having to call the setNext automatically in case of sufficient capacity
 
-class BaseHandler:public Handler{ //abstract class
-    Authenticate* authen;
-    Authorize* autho;
-    Validate* val;
+class BaseHandler:public Handler{
     Handler* currentHandler; //this attribute will solve the decoupling problem that forces setNext automatic call by bridging the handling logic chronologically through memorizing the current handler
-    int authenCapacity;
-    int authoCapacity; 
-    int valCapacity;
     public:
-        BaseHandler(int athc, int atoc, int vc): authenCapacity(athc),authoCapacity(atoc),valCapacity(vc){
-            //initial concrete handlers of the base handler
-            authen = new Authenticate(authenCapacity);            
-            autho = new Authorize(authoCapacity);
-            val = new Validate(valCapacity); 
-        }
         void processRequest(string request) override{
-            currentHandler = authen;
             currentHandler->processRequest(request);
-            currentHandler = currentHandler->setNext(autho);
-            currentHandler->processRequest("Authorize this please!");
-            currentHandler = currentHandler->setNext(val);
-            currentHandler->processRequest("Validate this please!");
         }  
 
-        virtual Handler* setNext(Handler* h) = 0;
+        Handler* setNext(Handler* h){
+            currentHandler = h;
+            return currentHandler;
+        };
 };
 
 int main(){
-    try {
-        // Authenticate authenticate(3);
-        // authenticate.processRequest("authenticate this please"); 
-        // authenticate.setNext(new Authorize(20));
+    try {        
+        //concrete handlers
+        Authenticate* authen = new Authenticate(10);
+        Authorize* autho = new Authorize(4);
+        Validate* val = new Validate(11);
+
+        BaseHandler bh;
+        bh.setNext(authen);
+        bh.processRequest("Authenticate this please");
+
+        bh.setNext(autho);
+        bh.processRequest("Authorize this please");
+
+        bh.setNext(val);
+        bh.processRequest("Validate this please");
 
     } catch (const AuthenticateException& authen){
         cerr << "Authentication Exception caught" << authen.what(); 
