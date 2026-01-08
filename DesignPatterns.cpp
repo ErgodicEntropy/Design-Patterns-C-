@@ -1018,6 +1018,111 @@ int main(){
 }
 
 
+//Command: Decoupling the GUI from the business logic (Separation of Concerns principle) by allowing the GUI to delegate user requests to a Command class that contains request metadata
+///Prior to using Command pattern, the GUI was the one responsible for handling request info like its name, the business logic object it would invoke, its list of arguments and how business logic objects will process it
+///The point of Command Pattern is to get rid of subclasses redundancy (that implement the same functionality) and tight coupling -> separation of concerns between a GUI layer and a business logic layer
+class Command{ //request class containing request type (business logic object to be invoked), name, list of arguments
+    BusinessLogic* BL; 
+    const char name;
+    string content;
+    vector<string> arguments; //list of constraints to be respected for each command type
+    public:
+        Command(const char n): name(n){
+            switch(name){
+                case 'Save':
+                    BL = new Save;
+                    content = "Save this file"; //pdf format + HD quality
+                    arguments = {"pdfFormat", "HD"}; //save logic metadata
+                case 'Copy':
+                    BL = new Copy;
+                    content = "Copy this file"; // have 2 copies for 30 days
+                    arguments = {"2", "30"}; //copy logic metadata
+                case 'Cnl':
+                    BL = new Cancel;
+                    content = "Cancel this operation"; 
+                    arguments = {""};
+                default:
+                    BL = new Cancel;
+                    content = "Cancel this operation"; 
+                    arguments = {""};
+            }
+        }
+
+        void triggerCommand(){
+            BL->processRequest(content, arguments);
+        }
+};
+
+class GUI{
+    public:
+        void clickSaveButton(){
+            Command c('Save');
+            c.triggerCommand(); 
+        }
+
+        void clickCopyButton(){
+            Command c('Copy');
+            c.triggerCommand(); 
+
+        }
+
+        void clickCancelButton(){
+            Command c('Cnl');
+            c.triggerCommand(); 
+        }
+}; 
+
+class BusinessLogic{
+    public:
+        virtual void processRequest(string content, vector<string> args) = 0;
+        virtual ~BusinessLogic() = default;
+};
+
+class Copy: public BusinessLogic{
+    public:
+        void processRequest(string content, vector<string> args) override{
+            cout << "Processing the following request: " << content << endl;
+            for (int k = 0; k < args.size(); k++){
+                cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
+            }
+
+            cout << "Your request" << content << "has been processed!";
+        }
+
+}; 
+class Save: public BusinessLogic{
+    public:
+        void processRequest(string content, vector<string> args) override{
+            cout << "Processing the following request: " << content << endl;
+            for (int k = 0; k < args.size(); k++){
+                cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
+            }
+            cout << "Your request" << content << "has been processed!";
+
+        }
+
+
+};
+class Cancel: public BusinessLogic{
+    public:
+        void processRequest(string content, vector<string> args) override{
+            cout << "Processing the following request: " << content << endl;
+            for (int k = 0; k < args.size(); k++){
+                cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
+            }
+            cout << "Your request" << content << "has been processed!";
+            
+        }
+};
+
+
+int main(){
+    //the GUI doesn't care about the specificities of the business logic, it simply allows the user to click a button and delegate all the work to the Command class which handles all the request's metadata
+    GUI g; 
+    g.clickSaveButton();
+    g.clickCancelButton();
+    return 0; 
+}
 
 //Observer
 class Observer {
