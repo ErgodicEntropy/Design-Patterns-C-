@@ -1022,20 +1022,24 @@ int main(){
 ///Prior to using Command pattern, the GUI was the one responsible for handling request info like its name, the business logic object it would invoke, its list of arguments and how business logic objects will process it
 ///The point of Command Pattern is to get rid of subclasses redundancy (that implement the same functionality) and tight coupling -> separation of concerns between a GUI layer and a business logic layer
 class Command{ //request class containing request type (business logic object to be invoked), name, list of arguments
+    //we can create a Command Interface that delegates work to its concrete Command classes which has 1-1 association with each Receiver/BL subclass (or depedency relation for code simplicity)
     BusinessLogic* BL; 
-    const char name;
     string content;
     vector<string> arguments; //list of constraints to be respected for each command type
+    const char name;
     public:
+        Command(const char n, string content, vector<string> args, BusinessLogic* bl): name(n), content(content), arguments(args){
+            BL = bl;
+        }
         Command(const char n): name(n){
             switch(name){
                 case 'Save':
                     BL = new Save;
-                    content = "Save this file"; //pdf format + HD quality
+                    content = "Save this item"; //pdf format + HD quality
                     arguments = {"pdfFormat", "HD"}; //save logic metadata
                 case 'Copy':
                     BL = new Copy;
-                    content = "Copy this file"; // have 2 copies for 30 days
+                    content = "Copy this item"; // have 2 copies for 30 days
                     arguments = {"2", "30"}; //copy logic metadata
                 case 'Cnl':
                     BL = new Cancel;
@@ -1048,39 +1052,91 @@ class Command{ //request class containing request type (business logic object to
             }
         }
 
-        void triggerCommand(){
-            BL->processRequest(content, arguments);
+        void sendRequest(){
+            BL->receiveRequest(*this); 
         }
+
+        void executeRequests(){
+            BL->processRequests();
+        }
+
+        friend class BusinessLogic;
+        friend class Copy;
+        friend class Save;
+        friend class Cancel;
 };
 
-class GUI{
+class CL{ //Client: responsible for creating the command/request and passing it to the GUI/Sender/Invoker class
     public:
+        Command makeRequest(const char name, string content, vector<string> arguments){
+            if (name == 'Save'){
+                Command c(name, content, arguments, new Save);
+                return c; 
+            } else if (name == 'Copy'){
+                Command c(name, content, arguments, new Copy);
+                return c; 
+            } else {
+                Command c(name, content, arguments, new Cancel);
+                return c; 
+            }
+
+        }
+}; 
+class GUI{ //Sender or Invoker class: its role is to trigger the command, it does not create the command (up to Client class) or send the request directly to the Business Logic (up to Command Class)
+    public:
+        //trigger command (with client)
+        void triggerCommand(Command c){
+            c.sendRequest();
+        }
+        //trigger command (no client)
         void clickSaveButton(){
             Command c('Save');
-            c.triggerCommand(); 
+            c.sendRequest(); 
+        }
+
+        void clickSaveMenuItemButton(){
+            Command c('Save');
+            c.sendRequest(); 
+        }
+
+        void clickSaveShortcutButton(){
+            Command c('Save');
+            c.sendRequest(); 
         }
 
         void clickCopyButton(){
             Command c('Copy');
-            c.triggerCommand(); 
+            c.sendRequest(); 
+
+        }
+
+        void clickCopyMenuButton(){
+            Command c('Copy');
+            c.sendRequest(); 
 
         }
 
         void clickCancelButton(){
             Command c('Cnl');
-            c.triggerCommand(); 
+            c.sendRequest(); 
         }
 }; 
 
-class BusinessLogic{
+class BusinessLogic{ //Receiver class
+    protected:
+        vector<Command> CommandQueue; 
     public:
-        virtual void processRequest(string content, vector<string> args) = 0;
+        void receiveRequest(Command& request){
+            CommandQueue.push_back(request); 
+            cout << request.name << "request received!"; 
+        }
+        virtual void processRequests() = 0;
         virtual ~BusinessLogic() = default;
 };
 
 class Copy: public BusinessLogic{
     public:
-        void processRequest(string content, vector<string> args) override{
+        void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
                 cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
@@ -1089,10 +1145,17 @@ class Copy: public BusinessLogic{
             cout << "Your request" << content << "has been processed!";
         }
 
+        void processRequests(){
+            for (Command c: CommandQueue){
+                if (c.name == 'Copy'){
+                    processRequest(c.content, c.arguments);
+                }
+            }
+        }
 }; 
 class Save: public BusinessLogic{
     public:
-        void processRequest(string content, vector<string> args) override{
+        void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
                 cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
@@ -1101,11 +1164,18 @@ class Save: public BusinessLogic{
 
         }
 
+        void processRequests(){
+            for (Command c: CommandQueue){
+                if (c.name == 'Save'){
+                    processRequest(c.content, c.arguments);
+                }
+            }
+        }
 
 };
 class Cancel: public BusinessLogic{
     public:
-        void processRequest(string content, vector<string> args) override{
+        void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
                 cout << "Validating the following constraint: " << args[k] << "" << "Please wait..." << endl;
@@ -1113,14 +1183,43 @@ class Cancel: public BusinessLogic{
             cout << "Your request" << content << "has been processed!";
             
         }
+
+        void processRequests(){
+            for (Command c: CommandQueue){
+                if (c.name == 'Cnl'){
+                    processRequest(c.content, c.arguments);
+                }
+            }
+        }
+
 };
 
 
 int main(){
-    //the GUI doesn't care about the specificities of the business logic, it simply allows the user to click a button and delegate all the work to the Command class which handles all the request's metadata
+    //loose coupoling (separation of concerns into GUI layer and Business Logic layer): 
+    /// the GUI doesn't care about the specificities of the business logic, it simply allows the user to click a button and delegate all the work to the Command class which handles all the request's metadata
     GUI g; 
+    //all the following save buttons delegate work to the same command type -> eliminate redundancy
     g.clickSaveButton();
+    g.clickSaveMenuItemButton(); 
+    g.clickSaveShortcutButton(); 
+
+    //copying in different ways but same funcitonality -> both creates a command of type copy
+    g.clickCopyButton();
+    g.clickCopyMenuButton(); 
+    //cancelling
     g.clickCancelButton();
+
+    //With client class
+    CL cl;
+    Command saveCommand = cl.makeRequest('Save', "Save this file", {"pdfFormat", "HD"}); //implicit copy
+    Command saveCommand2 = cl.makeRequest('Save', "Save this file", {"pdfFormat", "SD"}); //implicit copy
+    Command copyCommand = cl.makeRequest('Copy', "Copy this file", {"2", "30"}); //implicit copy
+    g.triggerCommand(saveCommand);
+    g.triggerCommand(saveCommand2);
+    g.triggerCommand(copyCommand);
+    saveCommand.executeRequests(); //runs both save commands in a queue 
+    copyCommand.executeRequests(); 
     return 0; 
 }
 
