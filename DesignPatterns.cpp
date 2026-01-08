@@ -1051,7 +1051,12 @@ class Command{ //request class containing request type (business logic object to
                     arguments = {""};
             }
         }
-
+        //WITHOUT CLIENT
+        void executeRequest(){
+            BL->executeRequest(content, arguments); 
+        }
+        
+        //WITH CLIENT
         void sendRequest(){
             BL->receiveRequest(*this); 
         }
@@ -1091,34 +1096,34 @@ class GUI{ //Sender or Invoker class: its role is to trigger the command, it doe
         //trigger command (no client)
         void clickSaveButton(){
             Command c('Save');
-            c.sendRequest(); 
+            c.executeRequest(); 
         }
 
         void clickSaveMenuItemButton(){
             Command c('Save');
-            c.sendRequest(); 
+            c.executeRequest(); 
         }
 
         void clickSaveShortcutButton(){
             Command c('Save');
-            c.sendRequest(); 
+            c.executeRequest(); 
         }
 
         void clickCopyButton(){
             Command c('Copy');
-            c.sendRequest(); 
+            c.executeRequest(); 
 
         }
 
         void clickCopyMenuButton(){
             Command c('Copy');
-            c.sendRequest(); 
+            c.executeRequest(); 
 
         }
 
         void clickCancelButton(){
             Command c('Cnl');
-            c.sendRequest(); 
+            c.executeRequest(); 
         }
 }; 
 
@@ -1130,12 +1135,16 @@ class BusinessLogic{ //Receiver class
             CommandQueue.push_back(request); 
             cout << request.name << "request received!"; 
         }
+        virtual void executeRequest(string content, vector<string> args) = 0;
         virtual void processRequests() = 0;
         virtual ~BusinessLogic() = default;
 };
 
 class Copy: public BusinessLogic{
     public:
+        void executeRequest(string content, vector<string> args) override{
+            processRequest(content, args); 
+        }
         void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
@@ -1155,6 +1164,10 @@ class Copy: public BusinessLogic{
 }; 
 class Save: public BusinessLogic{
     public:
+        void executeRequest(string content, vector<string> args) override{
+            processRequest(content, args); 
+        }
+
         void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
@@ -1175,6 +1188,10 @@ class Save: public BusinessLogic{
 };
 class Cancel: public BusinessLogic{
     public:
+        void executeRequest(string content, vector<string> args) override{
+            processRequest(content, args); 
+        }
+
         void processRequest(string content, vector<string> args){
             cout << "Processing the following request: " << content << endl;
             for (int k = 0; k < args.size(); k++){
@@ -1222,6 +1239,8 @@ int main(){
     copyCommand.executeRequests(); 
     return 0; 
 }
+
+
 
 //Observer
 class Observer {
